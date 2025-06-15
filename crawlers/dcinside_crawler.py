@@ -36,42 +36,30 @@ class DCInsideCrawler(BaseCrawler):
         self.session.headers.update(headers)
 
     def search(self, keyword, max_results=None):
-        """디시인사이드 검색 - 수집량 매개변수 추가"""
-        # 기본값 설정
         if max_results is None:
             max_results = 30
 
         try:
             print(f"디시인사이드 검색 시작 - 키워드: {keyword}, 목표: {max_results}개")
-
-            # 검색 URL
-            search_url = f"https://search.dcinside.com/combine/q/{urllib.parse.quote(keyword)}/p/1"
-
-            response = self.session.get(search_url, timeout=self.config.timeout)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.content, 'html.parser')
-            print(f"페이지 로딩 성공 (응답 크기: {len(response.content)} bytes)")
-
-            # 링크 추출
-            links = self._extract_links(soup)
-
-            # 요청된 개수만큼만 처리
-            process_count = min(len(links), max_results)
-
-            # 게시글 크롤링
             results = []
-            for idx, link in enumerate(links[:process_count], 1):
-                try:
-                    print(f"  [{idx}/{process_count}] 게시글 처리 중...")
+            page = 1
 
+            while len(results) < max_results:
+                search_url = f"https://search.dcinside.com/combine/q/{urllib.parse.quote(keyword)}/p/{page}"
+                response = self.session.get(search_url, timeout=self.config.timeout)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, 'html.parser')
+                links = self._extract_links(soup)
+                if not links:
+                    break  # 더 이상 결과 없음
+
+                for link in links:
+                    if len(results) >= max_results:
+                        break
                     post_url, post_title = self._process_link(link)
                     if not post_url:
                         continue
-
-                    # 상세 내용 크롤링
                     content = self._crawl_post_content(post_url)
-
                     data_item = self._create_data_item(
                         url=post_url,
                         title=post_title,
@@ -80,20 +68,15 @@ class DCInsideCrawler(BaseCrawler):
                         created_at=datetime.now().strftime("%Y-%m-%d")
                     )
                     results.append(data_item)
-
                     self._delay_request()
 
-                except Exception as e:
-                    print(f"    [오류] 게시글 처리 중 문제 발생: {e}")
-                    continue
+                page += 1  # 다음 페이지로
 
-            # 성공률 계산
             successful_crawls = len([d for d in results if d['crawl_success']])
             success_rate = (successful_crawls / len(results) * 100) if results else 0
 
             print(f"디시인사이드에서 {len(results)}개 게시글 수집 완료")
             print(f"크롤링 성공률: {success_rate:.1f}% ({successful_crawls}/{len(results)})")
-
             return results
 
         except Exception as e:

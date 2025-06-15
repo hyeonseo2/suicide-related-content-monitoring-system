@@ -310,7 +310,7 @@ class SuicideMonitoringSystem:
             self.results.append(result)
 
             if is_risky == 'Y':
-                print(f"  ⚠️ 위험 감지: 점수 {risk_score:.2f} (방법: {analysis_method})")
+                print(f"위험 감지: 점수 {risk_score:.2f} (방법: {analysis_method})")
 
         print(f"분석 완료: {len(self.results)}개 항목이 처리되었습니다.")
 
